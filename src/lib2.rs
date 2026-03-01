@@ -32,12 +32,52 @@ pub mod biblioteca{
     }
 
     pub fn ver_libros(context: Context<NuevoLibro>) -> Result<()>{
-        let libros = context.accounts.biblioteca.libros;
+        let libros = &context.accounts.biblioteca.libros;
         msg!("La lista de libros es: {:#?}", libros);
 
         Ok(())
     }
+
+    pub fn eliminar_libro(context:Context<NuevoLibro>, nombre:String) -> Result<()> {
+        let libros = &mut context.accounts.biblioteca.libros;
+
+        for i in 0..libros.len() {
+            if libros[i].nombre == nombre {
+                libros.remove(i);
+                msg!("Libro {} Eliminado", nombre);
+                return Ok(());
+            }
+        }
+        Err(Errores::LibroNoExixte.into())
+    }
+
+    pub fn alternar_estado(context: Context<NuevoLibro>, nombre:String) -> Result<()> {
+    let libros = &mut context.accounts.biblioteca.libros;
+
+    for i in 0..libros.len() {
+        if libros[i].nombre == nombre {
+            let estado = libros[i].disponible;
+            let nuevo_estado = !estado;
+            libros[i].disponible = nuevo_estado;
+
+            msg!("El libro: {}, ahora cuenta con una disponibilidad de: {}", nombre, nuevo_estado);
+            return Ok(());
+        }
+    }
+    Err(Errores::LibroNoExixte.into())
 }
+
+}
+
+#[error_code]
+pub enum Errores {
+    #[msg("Error, Libro no existe")]
+    LibroNoExixte,
+
+    #[msg("Error, no eres el propietario de la cuenta")]
+    NoEresElOwner,
+}
+
 
 #[account]
 #[derive(InitSpace)]
@@ -51,7 +91,7 @@ pub struct Biblioteca{
     libros: Vec<Libros>,
 } 
 
-#[derive(AnchorSerialize, AnchorDeseriolize, Clone, InitSpace, PartialEq, Debug)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace, PartialEq, Debug)]
 pub struct Libros {
     #[max_len(60)]
     nombre: String,
@@ -61,7 +101,7 @@ pub struct Libros {
     disponible: bool,
 }
 
-#[derive(Account)]
+#[derive(Accounts)]
 pub struct NuevaBiblioteca<'info> {
     #[account(mut)]
     pub owner: Signer<'info>,
@@ -70,7 +110,7 @@ pub struct NuevaBiblioteca<'info> {
         init,
         payer = owner,
         space = Biblioteca::INIT_SPACE + 8,
-        seeds = [b"biblioteca", owner.key().as_ref()]
+        seeds = [b"biblioteca", owner.key().as_ref()],
         bump
     )]
     pub biblioteca: Account<'info, Biblioteca>,
